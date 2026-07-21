@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "name": "Friend Restaurant Group",
+    "slug": "friend-restaurant-group",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#fff8ef"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#fff8ef"
+      }
+    },
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}

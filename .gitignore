@@ -1,0 +1,6 @@
+.env
+.env.local
+node_modules/
+.expo/
+expo-web.log
+expo-web-error.log
