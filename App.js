@@ -1,52 +1,17 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { SafeAreaView, StatusBar } from 'react-native';
 import LoginScreen from './src/screens/LoginScreen';
 import SignUpScreen from './src/screens/SignUpScreen';
 import AdminHomeScreen from './src/screens/AdminHomeScreen';
 import EmployeeHomeScreen from './src/screens/EmployeeHomeScreen';
 import CustomerHomeScreen from './src/screens/CustomerHomeScreen';
-import { supabase } from './src/lib/supabaseClient';
 import { authStyles } from './src/styles/authStyles';
-import { isValidRole } from './src/utils/roles';
+import { supabase } from './src/lib/supabaseClient';
 
 export default function App() {
   const [screen, setScreen] = useState('login');
   const [loginNotice, setLoginNotice] = useState('');
   const [profile, setProfile] = useState(null);
-  const [checkingSession, setCheckingSession] = useState(true);
-
-  useEffect(() => {
-    const restoreSession = async () => {
-      if (!supabase) {
-        setCheckingSession(false);
-        return;
-      }
-
-      const { data: sessionData } = await supabase.auth.getSession();
-      const user = sessionData.session?.user;
-
-      if (!user) {
-        setCheckingSession(false);
-        return;
-      }
-
-      const { data: existingProfile } = await supabase
-        .from('profiles')
-        .select('account_name, email, role')
-        .eq('id', user.id)
-        .maybeSingle();
-
-      if (existingProfile && isValidRole(existingProfile.role)) {
-        setProfile(existingProfile);
-        setScreen(existingProfile.role);
-      }
-
-      setCheckingSession(false);
-    };
-
-    restoreSession();
-  }, []);
-
   const showLogin = (notice = '') => {
     setProfile(null);
     setLoginNotice(notice);
@@ -69,10 +34,6 @@ export default function App() {
     }
     showLogin();
   };
-
-  if (checkingSession) {
-    return <SafeAreaView style={authStyles.appShell} />;
-  }
 
   return (
     <SafeAreaView style={authStyles.appShell}>
