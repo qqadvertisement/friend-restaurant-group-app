@@ -3,39 +3,67 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import PrimaryButton from '../components/PrimaryButton';
 import { supabase } from '../lib/supabaseClient';
 import { authStyles } from '../styles/authStyles';
-
-const RESTAURANTS = [
-  { id: 'ramen', label: 'Ramen' },
-  { id: 'sushi', label: 'Sushi' },
-  { id: 'thai', label: 'Thai Food' },
-];
-
-const RAMEN_PAGES = {
-  menu: {
-    title: 'Ramen Menu',
-    message: 'Here is the Ramen menu page.',
-  },
-  news: {
-    title: 'Ramen Restaurant News',
-    message: 'Here is the Ramen news page.',
-  },
-};
+import RestaurantHomeScreen from './RestaurantHomeScreen';
+import RestaurantMenuScreen from './RestaurantMenuScreen';
+import RestaurantNewsScreen from './RestaurantNewsScreen';
+import RestaurantRewardsScreen from './RestaurantRewardsScreen';
 
 export default function CustomerHomeScreen({ accountName, onLogout }) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [restaurants, setRestaurants] = useState([]);
+  const [restaurantsLoading, setRestaurantsLoading] = useState(true);
+  const [restaurantsFailed, setRestaurantsFailed] = useState(false);
   const [selectedRestaurant, setSelectedRestaurant] = useState(null);
-  const [ramenPage, setRamenPage] = useState(null);
-  const [ramenRewards, setRamenRewards] = useState([]);
-  const [ramenRewardsLoading, setRamenRewardsLoading] = useState(false);
-  const [ramenRewardsFailed, setRamenRewardsFailed] = useState(false);
-  const [redeemingRewardId, setRedeemingRewardId] = useState(null);
-  const [redeemMessage, setRedeemMessage] = useState('');
+  const [restaurantPage, setRestaurantPage] = useState(null);
   const [showRedeemHistory, setShowRedeemHistory] = useState(false);
   const [redeemHistory, setRedeemHistory] = useState([]);
   const [redeemHistoryLoading, setRedeemHistoryLoading] = useState(false);
   const [redeemHistoryFailed, setRedeemHistoryFailed] = useState(false);
   const [pointBalance, setPointBalance] = useState(null);
   const [pointBalanceFailed, setPointBalanceFailed] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadRestaurants = async () => {
+      setRestaurantsLoading(true);
+      setRestaurantsFailed(false);
+
+      if (!supabase) {
+        if (isMounted) {
+          setRestaurantsLoading(false);
+          setRestaurantsFailed(true);
+        }
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('restaurants')
+        .select('id, name')
+        .eq('is_active', true)
+        .order('id', { ascending: true });
+
+      if (!isMounted) {
+        return;
+      }
+
+      setRestaurantsLoading(false);
+
+      if (error) {
+        console.error('Failed to load restaurants:', error);
+        setRestaurantsFailed(true);
+        return;
+      }
+
+      setRestaurants(data ?? []);
+    };
+
+    loadRestaurants();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -81,53 +109,6 @@ export default function CustomerHomeScreen({ accountName, onLogout }) {
   }, []);
 
   useEffect(() => {
-    if (ramenPage !== 'redeem') {
-      return;
-    }
-
-    let isMounted = true;
-
-    const loadRamenRewards = async () => {
-      setRamenRewardsLoading(true);
-      setRamenRewardsFailed(false);
-
-      if (!supabase) {
-        if (isMounted) {
-          setRamenRewardsLoading(false);
-          setRamenRewardsFailed(true);
-        }
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from('rewards')
-        .select('id, item_name, points_required')
-        .eq('restaurant', 'Ramen')
-        .eq('is_active', true);
-
-      if (!isMounted) {
-        return;
-      }
-
-      setRamenRewardsLoading(false);
-
-      if (error) {
-        console.error('Failed to load Ramen rewards:', error);
-        setRamenRewardsFailed(true);
-        return;
-      }
-
-      setRamenRewards(data ?? []);
-    };
-
-    loadRamenRewards();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [ramenPage]);
-
-  useEffect(() => {
     if (!showRedeemHistory) {
       return;
     }
@@ -148,7 +129,9 @@ export default function CustomerHomeScreen({ accountName, onLogout }) {
 
       const { data, error } = await supabase
         .from('redeemhistory')
-        .select('id, restaurant, item_name, points_spent, balance_after, redeemed_at')
+        .select(
+          'id, restaurant_id, restaurant, item_name, points_spent, balance_after, redeemed_at'
+        )
         .order('redeemed_at', { ascending: false });
 
       if (!isMounted) {
@@ -181,6 +164,7 @@ export default function CustomerHomeScreen({ accountName, onLogout }) {
 
   const handleSelectRestaurant = (restaurant) => {
     setDropdownOpen(false);
+    setRestaurantPage(null);
     setSelectedRestaurant(restaurant);
   };
 
@@ -190,8 +174,8 @@ export default function CustomerHomeScreen({ accountName, onLogout }) {
       return;
     }
 
-    if (ramenPage) {
-      setRamenPage(null);
+    if (restaurantPage) {
+      setRestaurantPage(null);
       return;
     }
 
@@ -199,50 +183,6 @@ export default function CustomerHomeScreen({ accountName, onLogout }) {
   };
 
   const formatRedeemedAt = (redeemedAt) => new Date(redeemedAt).toLocaleString();
-
-  const handleOpenRamenRedeem = () => {
-    setRedeemMessage('');
-    setRamenPage('redeem');
-  };
-
-  const handleRedeem = async (reward) => {
-    if (redeemingRewardId || !supabase) {
-      return;
-    }
-
-    setRedeemingRewardId(reward.id);
-    setRedeemMessage('');
-
-    try {
-      const { data, error } = await supabase.rpc('redeem_reward', {
-        p_reward_id: reward.id,
-      });
-
-      if (error) {
-        console.error('Failed to redeem reward:', error);
-        setRedeemMessage('Unable to redeem reward. Please try again.');
-        return;
-      }
-
-      if (data?.success === true) {
-        setPointBalance(data.new_balance);
-        setRedeemMessage(`Redeem ${reward.item_name} success`);
-        return;
-      }
-
-      const failureMessage = data?.message || 'Unable to redeem reward. Please try again.';
-      setRedeemMessage(
-        /insufficient|not (?:have )?enough/i.test(failureMessage)
-          ? "Redeem fail. You don't have enough points."
-          : failureMessage
-      );
-    } catch (error) {
-      console.error('Failed to redeem reward:', error);
-      setRedeemMessage('Unable to redeem reward. Please try again.');
-    } finally {
-      setRedeemingRewardId(null);
-    }
-  };
 
   if (showRedeemHistory) {
     return (
@@ -276,77 +216,47 @@ export default function CustomerHomeScreen({ accountName, onLogout }) {
     );
   }
 
-  if (ramenPage === 'redeem') {
+  if (selectedRestaurant && restaurantPage === 'menu') {
     return (
-      <ScrollView contentContainerStyle={authStyles.scrollContent}>
-        <View style={authStyles.formCard}>
-          <Text style={authStyles.screenTitle}>Ramen Redeem</Text>
-          {ramenRewardsLoading ? (
-            <Text style={authStyles.successText}>Loading rewards...</Text>
-          ) : ramenRewardsFailed ? (
-            <Text style={authStyles.errorMessageText}>Unable to load rewards.</Text>
-          ) : ramenRewards.length === 0 ? (
-            <Text style={authStyles.successText}>No Ramen rewards available.</Text>
-          ) : (
-            ramenRewards.map((reward) => (
-              <View key={reward.id} style={authStyles.inputWrap}>
-                <View>
-                  <Text style={authStyles.label}>{reward.item_name}</Text>
-                  <Text style={authStyles.successText}>{reward.points_required} points</Text>
-                  <PrimaryButton
-                    title="Redeem"
-                    loading={redeemingRewardId === reward.id}
-                    onPress={() => handleRedeem(reward)}
-                  />
-                </View>
-              </View>
-            ))
-          )}
-          {redeemMessage ? <Text style={authStyles.successText}>{redeemMessage}</Text> : null}
-          <PrimaryButton title="Back" onPress={handleBack} />
-          <PrimaryButton title="Logout" onPress={onLogout} />
-        </View>
-      </ScrollView>
+      <RestaurantMenuScreen
+        restaurantId={selectedRestaurant.id}
+        restaurantName={selectedRestaurant.name}
+        onBack={handleBack}
+      />
     );
   }
 
-  if (ramenPage) {
+  if (selectedRestaurant && restaurantPage === 'redeem') {
     return (
-      <ScrollView contentContainerStyle={authStyles.scrollContent}>
-        <View style={authStyles.formCard}>
-          <Text style={authStyles.screenTitle}>{RAMEN_PAGES[ramenPage].title}</Text>
-          <Text style={authStyles.successText}>{RAMEN_PAGES[ramenPage].message}</Text>
-          <PrimaryButton title="Back" onPress={handleBack} />
-        </View>
-      </ScrollView>
+      <RestaurantRewardsScreen
+        restaurantId={selectedRestaurant.id}
+        restaurantName={selectedRestaurant.name}
+        onPointBalanceChange={setPointBalance}
+        onBack={handleBack}
+      />
     );
   }
 
-  if (selectedRestaurant?.id === 'ramen') {
+  if (selectedRestaurant && restaurantPage === 'news') {
     return (
-      <ScrollView contentContainerStyle={authStyles.scrollContent}>
-        <View style={authStyles.formCard}>
-          <Text style={authStyles.screenTitle}>Ramen</Text>
-          <PrimaryButton title="View Menu" onPress={() => setRamenPage('menu')} />
-          <PrimaryButton title="Redeem" onPress={handleOpenRamenRedeem} />
-          <PrimaryButton title="Restaurant News" onPress={() => setRamenPage('news')} />
-          <PrimaryButton title="Back" onPress={handleBack} />
-          <PrimaryButton title="Logout" onPress={onLogout} />
-        </View>
-      </ScrollView>
+      <RestaurantNewsScreen
+        restaurantId={selectedRestaurant.id}
+        restaurantName={selectedRestaurant.name}
+        onBack={handleBack}
+      />
     );
   }
 
   if (selectedRestaurant) {
     return (
-      <ScrollView contentContainerStyle={authStyles.scrollContent}>
-        <View style={authStyles.formCard}>
-          <Text style={authStyles.screenTitle}>
-            Here is the {selectedRestaurant.label} restaurant page.
-          </Text>
-          <PrimaryButton title="Back" onPress={handleBack} />
-        </View>
-      </ScrollView>
+      <RestaurantHomeScreen
+        restaurantId={selectedRestaurant.id}
+        restaurantName={selectedRestaurant.name}
+        onOpenMenu={() => setRestaurantPage('menu')}
+        onOpenRewards={() => setRestaurantPage('redeem')}
+        onOpenNews={() => setRestaurantPage('news')}
+        onBack={handleBack}
+      />
     );
   }
 
@@ -360,26 +270,36 @@ export default function CustomerHomeScreen({ accountName, onLogout }) {
         <PrimaryButton title="Redeem History" onPress={() => setShowRedeemHistory(true)} />
 
         <Text style={authStyles.label}>Restaurant</Text>
-        <Pressable
-          style={authStyles.inputWrap}
-          onPress={() => setDropdownOpen((current) => !current)}
-          accessibilityRole="button"
-        >
-          <Text style={authStyles.input}>Select a restaurant</Text>
-        </Pressable>
+        {restaurantsLoading ? (
+          <Text style={authStyles.successText}>Loading restaurants...</Text>
+        ) : restaurantsFailed ? (
+          <Text style={authStyles.errorMessageText}>Unable to load restaurants.</Text>
+        ) : restaurants.length === 0 ? (
+          <Text style={authStyles.successText}>No active restaurants are available.</Text>
+        ) : (
+          <>
+            <Pressable
+              style={authStyles.inputWrap}
+              onPress={() => setDropdownOpen((current) => !current)}
+              accessibilityRole="button"
+            >
+              <Text style={authStyles.input}>Select a restaurant</Text>
+            </Pressable>
 
-        {dropdownOpen
-          ? RESTAURANTS.map((restaurant) => (
-              <Pressable
-                key={restaurant.id}
-                onPress={() => handleSelectRestaurant(restaurant)}
-                accessibilityRole="button"
-                style={authStyles.inputWrap}
-              >
-                <Text style={authStyles.input}>{restaurant.label}</Text>
-              </Pressable>
-            ))
-          : null}
+            {dropdownOpen
+              ? restaurants.map((restaurant) => (
+                  <Pressable
+                    key={restaurant.id}
+                    onPress={() => handleSelectRestaurant(restaurant)}
+                    accessibilityRole="button"
+                    style={authStyles.inputWrap}
+                  >
+                    <Text style={authStyles.input}>{restaurant.name}</Text>
+                  </Pressable>
+                ))
+              : null}
+          </>
+        )}
 
         <PrimaryButton title="Logout" onPress={onLogout} />
       </View>

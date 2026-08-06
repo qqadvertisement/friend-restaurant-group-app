@@ -7,9 +7,11 @@ Friend Restaurant Group is a mobile-first Expo React Native app for restaurant c
 - Customer sign-up and login with Supabase Auth.
 - Role-based home pages for customers, employees, and admins.
 - Customer point-balance display.
-- Customer restaurant selector for Ramen, Sushi, and Thai Food.
-- Ramen mockup pages for Menu and Restaurant News.
-- Ramen rewards loaded from Supabase.
+- Active restaurant selector loaded from Supabase.
+- Shared restaurant pages using names and IDs returned by Supabase.
+- Restaurant menu images loaded by `restaurant_id` from Supabase database and Storage.
+- Restaurant rewards loaded by `restaurant_id`, with images from Supabase Storage.
+- Restaurant News loaded by `restaurant_id`, with images from Supabase Storage.
 - Reward redemption through the Supabase `redeem_reward` function.
 - Customer Redeem History page, loaded from Supabase.
 - Logout on the main role pages.
@@ -39,6 +41,6 @@ Use only the public/publishable Supabase key in this app. Do not add a service-r
 
 ## Project status
 
-Customer Ramen rewards and Redeem History are the current active customer features. Employee tools, admin tools, Sushi, Thai Food, password recovery, and the full restaurant experiences are still placeholders or not yet implemented.
+Dynamic restaurant selection, restaurant menus, restaurant rewards, Restaurant News, and Redeem History are the current active customer features. Employee tools, admin tools, and password recovery are still placeholders or not yet implemented.
 
 For the complete folder map, database expectations, completed work, and remaining work, read [progress.md](progress.md).
